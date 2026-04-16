@@ -122,7 +122,12 @@ def make_critic_round_hook():
 
 
 def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, ConversableAgent]:
-    """Create and configure the Painter and Critic agents."""
+    """Create and configure the Painter and Critic agents.
+
+    NOTE: This function does not reset round_counter or the canvas.
+    Call run() (which resets both) instead of calling build_agents directly,
+    or reset manually before calling if using in tests.
+    """
     llm_config = {
         "config_list": [
             {
