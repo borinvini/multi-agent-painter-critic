@@ -267,7 +267,8 @@ def run(subject: str, num_rounds: int = 10) -> None:
     print(f"Images saved in output/ | Log saved to {log_path}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return the CLI argument parser."""
     parser = argparse.ArgumentParser(
         description="Multi-Agent Painter & Critic — AG2 demo"
     )
@@ -278,7 +279,11 @@ def main() -> None:
         default=10,
         help="Number of Painter–Critic rounds (default: 10)",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     run(args.subject, args.rounds)
 
 

@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import base64
@@ -113,23 +114,19 @@ class TestInjectCanvas:
         assert pc.inject_canvas_into_messages([]) == []
 
 
-import argparse
-
-
 class TestCLI:
     def test_subject_required(self):
         import subprocess, sys
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         result = subprocess.run(
-            [sys.executable, "painter_critic.py"],
-            capture_output=True, text=True
+            [sys.executable, os.path.join(project_root, "painter_critic.py")],
+            capture_output=True, text=True,
+            cwd=project_root,
         )
         assert result.returncode != 0
         assert "subject" in result.stderr.lower() or "required" in result.stderr.lower()
 
     def test_default_rounds_is_10(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--subject", required=True)
-        parser.add_argument("--rounds", type=int, default=10)
-        args = parser.parse_args(["--subject", "a cat"])
+        args = pc.build_parser().parse_args(["--subject", "a cat"])
         assert args.rounds == 10
         assert args.subject == "a cat"
