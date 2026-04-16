@@ -34,6 +34,11 @@ All output is saved to the `output/` directory:
 - `round_01.png` … `round_10.png` — canvas state after each Painter turn  
 - `conversation_log.txt` — full text conversation between agents (image data stripped)
 
+**Note:** The `output/` directory is not cleared between runs. Remove or rename it before re-running to avoid mixing images from different sessions:
+```bash
+rm -rf output/
+```
+
 ## Design Decisions
 
 ### Agent Pattern: Sequential Chat Loop
@@ -163,9 +168,10 @@ The canvas remains at approximately 40,000 non-white pixels, confirming the Pain
 ### What Went Wrong or Was Unexpected
 
 - **Round count overshoot**: `--rounds 10` produces 16 saved images (rounds 1–16) instead of exactly 10
-  - This occurs because `max_turns=num_rounds * 4 + 4` allows extra conversation turns
-  - The loop saves a canvas whenever the Critic is about to reply with a critique, which can happen more frequently than expected due to message structure
-  - The Critic's round-saving logic caps at `num_rounds`, but earlier rounds may trigger multiple saves during tool error recovery
+  - The `output/` directory accumulates images across multiple runs—it is not cleared automatically
+  - If `output/round_01.png` through `round_16.png` appear, the script was run multiple times
+  - Each individual run saves exactly `--rounds N` images (capped by the hook)
+  - Always remove or rename the `output/` directory before re-running to start fresh
 
 - **Tool validation errors**: Round 2–3 shows a Pydantic validation error when the Painter attempted to call `draw_pixels` with missing field `s` (likely a serialization issue)
   - This was recovered gracefully and didn't break the conversation
