@@ -217,3 +217,70 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
     painter.register_hook("process_all_messages_before_reply", inject_canvas_into_messages)
 
     return painter, critic
+
+
+def run(subject: str, num_rounds: int = 10) -> None:
+    """Execute the full Painter–Critic conversation."""
+    global canvas, round_counter
+    # Reset state for a fresh run
+    canvas = Image.new("RGB", (CANVAS_SIZE, CANVAS_SIZE), (255, 255, 255))
+    round_counter[0] = 0
+
+    painter, critic = build_agents(subject, num_rounds)
+
+    initial_message = (
+        f"Please start drawing: {subject}. "
+        f"The canvas is a blank white {CANVAS_SIZE}x{CANVAS_SIZE} image. "
+        "Use your drawing tools to begin creating the artwork. "
+        "Call at least one drawing tool before responding."
+    )
+
+    print(f"Starting {num_rounds}-round Painter & Critic session.")
+    print(f"Subject: {subject}\n")
+
+    chat_result = critic.initiate_chat(
+        painter,
+        message=initial_message,
+        max_turns=num_rounds * 2,
+    )
+
+    # Save conversation log (text only — strip base64 image content)
+    os.makedirs("output", exist_ok=True)
+    log_path = "output/conversation_log.txt"
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write(f"Subject: {subject}\nRounds: {num_rounds}\n{'='*60}\n\n")
+        for msg in chat_result.chat_history:
+            name = msg.get("name") or msg.get("role", "unknown")
+            content = msg.get("content") or ""
+            if isinstance(content, list):
+                # Extract text parts only
+                parts = [
+                    c["text"]
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ]
+                content = " ".join(parts)
+            if content.strip():
+                f.write(f"[{name}]\n{content}\n\n")
+
+    print(f"\nDone. {round_counter[0]} rounds completed.")
+    print(f"Images saved in output/ | Log saved to {log_path}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Multi-Agent Painter & Critic — AG2 demo"
+    )
+    parser.add_argument("--subject", required=True, help="Drawing subject/prompt")
+    parser.add_argument(
+        "--rounds",
+        type=int,
+        default=10,
+        help="Number of Painter–Critic rounds (default: 10)",
+    )
+    args = parser.parse_args()
+    run(args.subject, args.rounds)
+
+
+if __name__ == "__main__":
+    main()

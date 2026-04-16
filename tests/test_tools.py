@@ -111,3 +111,25 @@ class TestInjectCanvas:
     def test_handles_empty_list(self):
         reset()
         assert pc.inject_canvas_into_messages([]) == []
+
+
+import argparse
+
+
+class TestCLI:
+    def test_subject_required(self):
+        import subprocess, sys
+        result = subprocess.run(
+            [sys.executable, "painter_critic.py"],
+            capture_output=True, text=True
+        )
+        assert result.returncode != 0
+        assert "subject" in result.stderr.lower() or "required" in result.stderr.lower()
+
+    def test_default_rounds_is_10(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--subject", required=True)
+        parser.add_argument("--rounds", type=int, default=10)
+        args = parser.parse_args(["--subject", "a cat"])
+        assert args.rounds == 10
+        assert args.subject == "a cat"
