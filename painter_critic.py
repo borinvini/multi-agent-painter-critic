@@ -50,7 +50,7 @@ def draw_line(
         fill=(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))),
         width=max(1, width),
     )
-    return f"Drew line ({x1},{y1})→({x2},{y2})."
+    return f"Drew line ({x1},{y1})->({x2},{y2})."
 
 
 def draw_filled_rectangle(
@@ -110,13 +110,24 @@ def inject_canvas_into_messages(messages: list[dict]) -> list[dict]:
 def make_critic_round_hook():
     """
     Returns a register_reply function for the Critic.
-    Fires before each Critic LLM call: increments round counter, saves canvas.
-    Returns (False, None) to pass control to the next reply handler (the LLM).
+    Fires before each Critic reply. Only saves canvas when the last message is NOT
+    a tool_calls message (i.e., tools have already been executed and Critic is about
+    to generate an LLM critique). Returns (False, None) to pass control to the next
+    reply handler (the LLM).
     """
     def hook(recipient: ConversableAgent, messages: list, sender: ConversableAgent, config: Any) -> tuple[bool, Any]:
-        round_counter[0] += 1
-        save_canvas(round_counter[0])
-        print(f"\n[Round {round_counter[0]}] Canvas saved as output/round_{round_counter[0]:02d}.png")
+        if not messages:
+            return False, None
+        last = messages[-1]
+        # Only save and count when the last message is NOT a tool_calls message.
+        # When the last message has tool_calls, the critic is about to execute them
+        # (tools haven't run yet). When it's a regular text message, tools have
+        # already been executed and critic is about to generate a critique.
+        has_tool_calls = bool(last.get("tool_calls"))
+        if not has_tool_calls:
+            round_counter[0] += 1
+            save_canvas(round_counter[0])
+            print(f"\n[Round {round_counter[0]}] Canvas saved as output/round_{round_counter[0]:02d}.png")
         return False, None
     return hook
 
@@ -144,9 +155,12 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
         system_message=(
             f"You are a Painter agent. Your job is to draw on a {CANVAS_SIZE}x{CANVAS_SIZE} pixel canvas "
             f"using your drawing tools.\nYou are drawing: {subject}\n\n"
-            "Each turn you MUST call drawing tools to add or refine elements on the canvas. "
-            "Draw multiple pixels/shapes per turn — single pixels produce no visible progress.\n"
-            "After drawing, briefly describe what you drew and what you plan to improve next.\n"
+            "IMPORTANT RULES:\n"
+            "1. When you receive a drawing request or feedback, respond with MULTIPLE tool calls in a SINGLE "
+            "   message — call draw_filled_rectangle, draw_line, and/or draw_pixels together in one turn. "
+            "   Aim for at least 3-5 tool calls per message to make visible progress.\n"
+            "2. After your tool calls, include a brief text description of what you drew.\n"
+            "3. Do NOT call just one tool and wait — batch all your drawing for this round into one response.\n"
             "When you receive feedback from the Critic, use it to guide your next drawing actions."
         ),
         llm_config=llm_config,
@@ -166,7 +180,6 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
         ),
         llm_config=llm_config,
         human_input_mode="NEVER",
-        max_consecutive_auto_reply=num_rounds,
     )
 
     # Register drawing tools: Painter is both the caller (LLM) and executor
@@ -205,6 +218,14 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
         ),
     )
 
+    # Register drawing tools for execution on critic too:
+    # In the max_turns chat loop, when critic.generate_reply() is called and the last
+    # message in history contains Painter's tool_calls, critic is the one that executes
+    # them via generate_tool_calls_reply. Without this the tools return "not found".
+    critic.register_for_execution(name="draw_pixels")(draw_pixels)
+    critic.register_for_execution(name="draw_line")(draw_line)
+    critic.register_for_execution(name="draw_filled_rectangle")(draw_filled_rectangle)
+
     # Critic: save canvas + inject canvas image before each critique
     critic.register_reply(
         [ConversableAgent],
@@ -238,10 +259,13 @@ def run(subject: str, num_rounds: int = 10) -> None:
     print(f"Starting {num_rounds}-round Painter & Critic session.")
     print(f"Subject: {subject}\n")
 
+    # Each round requires ~4 message turns: Painter draws (tool_calls) →
+    # Critic executes tools (tool_results) → Painter text → Critic critique.
+    # Use num_rounds * 4 + 4 to allow full conversation flow.
     chat_result = critic.initiate_chat(
         painter,
         message=initial_message,
-        max_turns=num_rounds * 2,
+        max_turns=num_rounds * 4 + 4,
     )
 
     # Save conversation log (text only — strip base64 image content)
