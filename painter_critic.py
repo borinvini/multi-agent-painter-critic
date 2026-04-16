@@ -94,6 +94,8 @@ def inject_canvas_into_messages(messages: list[dict]) -> list[dict]:
         return messages
     last = dict(messages[-1])
     text = last.get("content") or ""
+    # Only inject into plain-text messages; skip if content is already a list
+    # (e.g., message was already processed by this hook in a prior call).
     if isinstance(text, str):
         last["content"] = [
             {
