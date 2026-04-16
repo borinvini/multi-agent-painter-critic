@@ -1,2 +1,3 @@
 ag2[openai]
 Pillow
+pytest
