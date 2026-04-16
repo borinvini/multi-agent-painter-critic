@@ -28,8 +28,9 @@ class TestDrawPixels:
 
     def test_clamps_out_of_bounds_no_error(self):
         reset()
-        pc.draw_pixels([{"x": 300, "y": -5, "r": 255, "g": 255, "b": 255}])
-        # Clamped: should not raise
+        pc.draw_pixels([{"x": 300, "y": -5, "r": 200, "g": 100, "b": 50}])
+        # x=300 clamps to 199, y=-5 clamps to 0
+        assert pc.canvas.getpixel((199, 0)) == (200, 100, 50)
 
     def test_returns_count_string(self):
         reset()

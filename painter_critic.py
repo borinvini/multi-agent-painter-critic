@@ -23,6 +23,8 @@ def draw_pixels(
         r = max(0, min(255, int(p["r"])))
         g = max(0, min(255, int(p["g"])))
         b = max(0, min(255, int(p["b"])))
+        # NOTE: 'canvas' is resolved from module scope at call time so that
+        # reset() in tests and run() in production can rebind it effectively.
         canvas.putpixel((x, y), (r, g, b))
     return f"Drew {len(pixels)} pixels."
 
