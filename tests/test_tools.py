@@ -2,6 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import base64
+import io as _io
 from PIL import Image
 import painter_critic as pc
 
@@ -66,3 +68,46 @@ class TestDrawFilledRectangle:
         reset()
         result = pc.draw_filled_rectangle(0, 0, 10, 10, 0, 0, 0)
         assert isinstance(result, str) and len(result) > 0
+
+
+class TestCanvasToBase64:
+    def test_returns_non_empty_string(self):
+        reset()
+        result = pc.canvas_to_base64()
+        assert isinstance(result, str) and len(result) > 100
+
+    def test_decodes_to_200x200_png(self):
+        reset()
+        data = base64.b64decode(pc.canvas_to_base64())
+        img = Image.open(_io.BytesIO(data))
+        assert img.size == (200, 200)
+        assert img.mode == "RGB"
+
+
+class TestInjectCanvas:
+    def test_injects_image_url_as_first_content_item(self):
+        reset()
+        messages = [{"role": "user", "content": "draw a cat"}]
+        result = pc.inject_canvas_into_messages(messages)
+        assert isinstance(result[-1]["content"], list)
+        assert result[-1]["content"][0]["type"] == "image_url"
+        assert "base64" in result[-1]["content"][0]["image_url"]["url"]
+
+    def test_preserves_text_as_second_content_item(self):
+        reset()
+        messages = [{"role": "user", "content": "draw a cat"}]
+        result = pc.inject_canvas_into_messages(messages)
+        assert result[-1]["content"][1] == {"type": "text", "text": "draw a cat"}
+
+    def test_does_not_touch_earlier_messages(self):
+        reset()
+        messages = [
+            {"role": "user", "content": "earlier"},
+            {"role": "user", "content": "latest"},
+        ]
+        result = pc.inject_canvas_into_messages(messages)
+        assert result[0]["content"] == "earlier"
+
+    def test_handles_empty_list(self):
+        reset()
+        assert pc.inject_canvas_into_messages([]) == []

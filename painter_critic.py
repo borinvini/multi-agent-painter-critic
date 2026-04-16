@@ -73,3 +73,33 @@ def draw_filled_rectangle(
         fill=(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))),
     )
     return f"Drew rectangle ({x0},{y0}) {width}×{height}."
+
+
+def canvas_to_base64() -> str:
+    """Encode the current canvas as a base64 PNG string."""
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+
+def save_canvas(round_num: int) -> None:
+    """Save the current canvas to output/round_NN.png."""
+    os.makedirs("output", exist_ok=True)
+    canvas.save(f"output/round_{round_num:02d}.png")
+
+
+def inject_canvas_into_messages(messages: list[dict]) -> list[dict]:
+    """Hook: prepend the current canvas image to the last message."""
+    if not messages:
+        return messages
+    last = dict(messages[-1])
+    text = last.get("content") or ""
+    if isinstance(text, str):
+        last["content"] = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{canvas_to_base64()}"},
+            },
+            {"type": "text", "text": text},
+        ]
+    return messages[:-1] + [last]
