@@ -105,3 +105,110 @@ def inject_canvas_into_messages(messages: list[dict]) -> list[dict]:
             {"type": "text", "text": text},
         ]
     return messages[:-1] + [last]
+
+
+def make_critic_round_hook():
+    """
+    Returns a register_reply function for the Critic.
+    Fires before each Critic LLM call: increments round counter, saves canvas.
+    Returns (False, None) to pass control to the next reply handler (the LLM).
+    """
+    def hook(recipient: ConversableAgent, messages: list, sender: ConversableAgent, config: Any) -> tuple[bool, Any]:
+        round_counter[0] += 1
+        save_canvas(round_counter[0])
+        print(f"\n[Round {round_counter[0]}] Canvas saved as output/round_{round_counter[0]:02d}.png")
+        return False, None
+    return hook
+
+
+def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, ConversableAgent]:
+    """Create and configure the Painter and Critic agents."""
+    llm_config = {
+        "config_list": [
+            {
+                "model": "openai/gpt-4.1-mini",
+                "base_url": "https://5f5832nb90.execute-api.eu-central-1.amazonaws.com/v1",
+                "api_key": "none",
+            }
+        ],
+        "cache_seed": None,
+    }
+
+    painter = ConversableAgent(
+        name="Painter",
+        system_message=(
+            f"You are a Painter agent. Your job is to draw on a {CANVAS_SIZE}x{CANVAS_SIZE} pixel canvas "
+            f"using your drawing tools.\nYou are drawing: {subject}\n\n"
+            "Each turn you MUST call drawing tools to add or refine elements on the canvas. "
+            "Draw multiple pixels/shapes per turn — single pixels produce no visible progress.\n"
+            "After drawing, briefly describe what you drew and what you plan to improve next.\n"
+            "When you receive feedback from the Critic, use it to guide your next drawing actions."
+        ),
+        llm_config=llm_config,
+        human_input_mode="NEVER",
+    )
+
+    critic = ConversableAgent(
+        name="Critic",
+        system_message=(
+            f"You are an art Critic agent. Each turn you receive an image of the current canvas and evaluate it.\n"
+            f"The subject being drawn is: {subject}\n\n"
+            "Provide structured feedback with three parts:\n"
+            "1. What works well (be specific about visual elements)\n"
+            "2. What should be changed or is missing\n"
+            "3. Concrete suggestions for the next round (specific colors, positions, shapes)\n\n"
+            "Be constructive and actionable. The Painter will use your feedback to improve the drawing."
+        ),
+        llm_config=llm_config,
+        human_input_mode="NEVER",
+        max_consecutive_auto_reply=num_rounds,
+    )
+
+    # Register drawing tools: Painter is both the caller (LLM) and executor
+    register_function(
+        draw_pixels,
+        caller=painter,
+        executor=painter,
+        name="draw_pixels",
+        description=(
+            "Batch-draw pixels on the canvas. "
+            "Input: list of dicts, each with keys: x (int 0-199), y (int 0-199), "
+            "r (int 0-255), g (int 0-255), b (int 0-255). "
+            "Always provide at least 20 pixels per call for visible progress."
+        ),
+    )
+    register_function(
+        draw_line,
+        caller=painter,
+        executor=painter,
+        name="draw_line",
+        description=(
+            "Draw a straight line on the canvas. "
+            "Parameters: x1 (int 0-199), y1 (int 0-199), x2 (int 0-199), y2 (int 0-199), "
+            "r (int 0-255), g (int 0-255), b (int 0-255), width (int, default 2)."
+        ),
+    )
+    register_function(
+        draw_filled_rectangle,
+        caller=painter,
+        executor=painter,
+        name="draw_filled_rectangle",
+        description=(
+            "Fill a rectangular region with a solid color. "
+            "Parameters: x (int 0-199, top-left), y (int 0-199, top-left), "
+            "width (int), height (int), r (int 0-255), g (int 0-255), b (int 0-255)."
+        ),
+    )
+
+    # Critic: save canvas + inject canvas image before each critique
+    critic.register_reply(
+        [ConversableAgent],
+        make_critic_round_hook(),
+        position=0,
+    )
+    critic.register_hook("process_all_messages_before_reply", inject_canvas_into_messages)
+
+    # Painter: inject current canvas image before each drawing turn
+    painter.register_hook("process_all_messages_before_reply", inject_canvas_into_messages)
+
+    return painter, critic
