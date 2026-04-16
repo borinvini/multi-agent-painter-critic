@@ -107,7 +107,7 @@ def inject_canvas_into_messages(messages: list[dict]) -> list[dict]:
     return messages[:-1] + [last]
 
 
-def make_critic_round_hook():
+def make_critic_round_hook(num_rounds: int):
     """
     Returns a register_reply function for the Critic.
     Fires before each Critic reply. Only saves canvas when the last message is NOT
@@ -119,12 +119,12 @@ def make_critic_round_hook():
         if not messages:
             return False, None
         last = messages[-1]
-        # Only save and count when the last message is NOT a tool_calls message.
-        # When the last message has tool_calls, the critic is about to execute them
-        # (tools haven't run yet). When it's a regular text message, tools have
-        # already been executed and critic is about to generate a critique.
+        # Save only when the last message is a plain Painter text summary
+        # (not a tool_calls request and not a tool result message).
+        # This ensures one save per Painter drawing turn, capped at num_rounds.
         has_tool_calls = bool(last.get("tool_calls"))
-        if not has_tool_calls:
+        is_tool_result = last.get("role") == "tool"
+        if not has_tool_calls and not is_tool_result and round_counter[0] < num_rounds:
             round_counter[0] += 1
             save_canvas(round_counter[0])
             print(f"\n[Round {round_counter[0]}] Canvas saved as output/round_{round_counter[0]:02d}.png")
@@ -157,7 +157,7 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
             f"using your drawing tools.\nYou are drawing: {subject}\n\n"
             "IMPORTANT RULES:\n"
             "1. When you receive a drawing request or feedback, respond with MULTIPLE tool calls in a SINGLE "
-            "   message — call draw_filled_rectangle, draw_line, and/or draw_pixels together in one turn. "
+            "message — call draw_filled_rectangle, draw_line, and/or draw_pixels together in one turn. "
             "   Aim for at least 3-5 tool calls per message to make visible progress.\n"
             "2. After your tool calls, include a brief text description of what you drew.\n"
             "3. Do NOT call just one tool and wait — batch all your drawing for this round into one response.\n"
@@ -229,7 +229,7 @@ def build_agents(subject: str, num_rounds: int) -> tuple[ConversableAgent, Conve
     # Critic: save canvas + inject canvas image before each critique
     critic.register_reply(
         [ConversableAgent],
-        make_critic_round_hook(),
+        make_critic_round_hook(num_rounds),
         position=0,
     )
     critic.register_hook("process_all_messages_before_reply", inject_canvas_into_messages)
