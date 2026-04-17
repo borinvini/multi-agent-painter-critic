@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_tools.py::TestCanvasToBase64 -v --collect-only)",
+      "Bash(python -m pytest tests/test_tools.py::TestInjectCanvas -v --collect-only)",
+      "Bash(pytest tests/test_tools.py -v)",
+      "Bash(python -c ' *)",
+      "Bash(python -)",
+      "Bash(python -m pytest tests/test_tools.py -v)",
+      "Bash(python -m pytest tests/test_tools.py::TestCLI -v)",
+      "Bash(python painter_critic.py)",
+      "Bash(python -c \"import autogen; import PIL; print\\('Dependencies OK'\\)\")",
+      "Bash(python painter_critic.py --subject \"a simple red circle on white background\" --rounds 1)",
+      "Bash(python painter_critic.py --subject \"a sunset over the ocean with orange sky and calm water\" --rounds 10)",
+      "Bash(ls output/)",
+      "Bash(python -m pytest tests/test_tools.py::TestDrawCircle -v)",
+      "Bash(python3)",
+      "Bash(python -c \"from PIL import Image, ImageDraw; canvas = Image.new\\('RGB', \\(200, 200\\), \\(255, 255, 255\\)\\); draw = ImageDraw.Draw\\(canvas\\); draw.ellipse\\([\\(0, 0\\), \\(19, 19\\)], fill=\\(0, 255, 0\\)\\); print\\('\\(0,0\\):', canvas.getpixel\\(\\(0, 0\\)\\)\\); print\\('\\(10,10\\):', canvas.getpixel\\(\\(10, 10\\)\\)\\)\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw; canvas = Image.new\\('RGB', \\(200, 200\\), \\(255, 255, 255\\)\\); draw = ImageDraw.Draw\\(canvas\\); draw.ellipse\\([\\(0, 0\\), \\(20, 20\\)], fill=\\(0, 255, 0\\)\\); print\\('\\(0,0\\):', canvas.getpixel\\(\\(0, 0\\)\\)\\); print\\('\\(10,10\\):', canvas.getpixel\\(\\(10, 10\\)\\)\\); print\\('\\(20,20\\):', canvas.getpixel\\(\\(20, 20\\)\\)\\)\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw; canvas = Image.new\\('RGB', \\(200, 200\\), \\(255, 255, 255\\)\\); draw = ImageDraw.Draw\\(canvas\\); draw.ellipse\\([\\(0, 0\\), \\(40, 40\\)], fill=\\(0, 255, 0\\)\\); print\\('\\(0,0\\):', canvas.getpixel\\(\\(0, 0\\)\\)\\); print\\('\\(1,1\\):', canvas.getpixel\\(\\(1, 1\\)\\)\\); print\\('\\(2,0\\):', canvas.getpixel\\(\\(2, 0\\)\\)\\); print\\('\\(20,20\\):', canvas.getpixel\\(\\(20, 20\\)\\)\\)\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw; canvas = Image.new\\('RGB', \\(200, 200\\), \\(255, 255, 255\\)\\); draw = ImageDraw.Draw\\(canvas\\); draw.ellipse\\([\\(80, 80\\), \\(120, 120\\)], fill=\\(0, 255, 0\\)\\); print\\('\\(80,80\\):', canvas.getpixel\\(\\(80, 80\\)\\)\\); print\\('\\(100,100\\):', canvas.getpixel\\(\\(100, 100\\)\\)\\); print\\('\\(120,120\\):', canvas.getpixel\\(\\(120, 120\\)\\)\\)\")",
+      "Bash(python)",
+      "Bash(python -m pytest tests/test_tools.py::TestDrawFilledRectangle -v)",
+      "Bash(python3 *)",
+      "Bash(python -m pytest tests/test_tools.py::TestDrawPolygon -v)"
+    ]
+  }
+}

@@ -14,33 +14,6 @@ def reset():
     pc.round_counter[0] = 0
 
 
-class TestDrawPixels:
-    def test_single_pixel_correct_color(self):
-        reset()
-        pc.draw_pixels([{"x": 10, "y": 20, "r": 255, "g": 0, "b": 0}])
-        assert pc.canvas.getpixel((10, 20)) == (255, 0, 0)
-
-    def test_multiple_pixels(self):
-        reset()
-        pc.draw_pixels([
-            {"x": 5, "y": 5, "r": 100, "g": 150, "b": 200},
-            {"x": 6, "y": 6, "r": 50, "g": 60, "b": 70},
-        ])
-        assert pc.canvas.getpixel((5, 5)) == (100, 150, 200)
-        assert pc.canvas.getpixel((6, 6)) == (50, 60, 70)
-
-    def test_clamps_out_of_bounds_no_error(self):
-        reset()
-        pc.draw_pixels([{"x": 300, "y": -5, "r": 200, "g": 100, "b": 50}])
-        # x=300 clamps to 199, y=-5 clamps to 0
-        assert pc.canvas.getpixel((199, 0)) == (200, 100, 50)
-
-    def test_returns_count_string(self):
-        reset()
-        result = pc.draw_pixels([{"x": 1, "y": 1, "r": 0, "g": 0, "b": 0}])
-        assert "1" in result
-
-
 class TestDrawLine:
     def test_horizontal_line_midpoint_correct_color(self):
         reset()
@@ -112,6 +85,73 @@ class TestInjectCanvas:
     def test_handles_empty_list(self):
         reset()
         assert pc.inject_canvas_into_messages([]) == []
+
+
+class TestDrawCircle:
+    def test_center_pixel_correct_color(self):
+        reset()
+        pc.draw_circle(100, 100, 10, 255, 0, 0)
+        assert pc.canvas.getpixel((100, 100)) == (255, 0, 0)
+
+    def test_clamps_near_edge_no_error(self):
+        reset()
+        # Center at (0,0) radius 20: bounding box clips to canvas — no crash
+        pc.draw_circle(0, 0, 20, 0, 255, 0)
+        # With clamped bounds (0,0) to (19,19), check a pixel that should be drawn
+        assert pc.canvas.getpixel((10, 10)) == (0, 255, 0)
+
+    def test_returns_confirmation_string(self):
+        reset()
+        result = pc.draw_circle(50, 50, 5, 0, 0, 255)
+        assert isinstance(result, str) and "circle" in result.lower()
+
+
+class TestDrawPolygon:
+    def test_interior_pixel_correct_color(self):
+        reset()
+        # Triangle: top-center (100,50), bottom-left (50,150), bottom-right (150,150)
+        # Point (100, 120) is inside this triangle
+        pc.draw_polygon(
+            [{"x": 100, "y": 50}, {"x": 50, "y": 150}, {"x": 150, "y": 150}],
+            0, 128, 0,
+        )
+        assert pc.canvas.getpixel((100, 120)) == (0, 128, 0)
+
+    def test_clamps_out_of_bounds_no_error(self):
+        reset()
+        # Vertices partially outside canvas — should clamp and not crash
+        pc.draw_polygon(
+            [{"x": -10, "y": -10}, {"x": 250, "y": -10}, {"x": 100, "y": 100}],
+            255, 255, 0,
+        )
+        assert pc.canvas.getpixel((100, 50)) == (255, 255, 0)
+
+    def test_returns_confirmation_string(self):
+        reset()
+        result = pc.draw_polygon(
+            [{"x": 10, "y": 10}, {"x": 50, "y": 10}, {"x": 30, "y": 40}],
+            100, 100, 100,
+        )
+        assert isinstance(result, str) and "polygon" in result.lower()
+
+
+class TestDrawTriangle:
+    def test_interior_pixel_correct_color(self):
+        reset()
+        # Flat-bottom triangle: apex (100,50), bottom-left (50,150), bottom-right (150,150)
+        # Point (100,120) is well inside
+        pc.draw_triangle(100, 50, 50, 150, 150, 150, 255, 0, 0)
+        assert pc.canvas.getpixel((100, 120)) == (255, 0, 0)
+
+    def test_clamps_out_of_bounds_no_error(self):
+        reset()
+        pc.draw_triangle(-10, -10, 250, -10, 100, 100, 0, 255, 0)
+        assert pc.canvas.getpixel((100, 50)) == (0, 255, 0)
+
+    def test_returns_confirmation_string(self):
+        reset()
+        result = pc.draw_triangle(10, 10, 50, 10, 30, 50, 0, 0, 255)
+        assert isinstance(result, str) and "triangle" in result.lower()
 
 
 class TestCLI:
